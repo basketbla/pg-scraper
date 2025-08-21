@@ -1,6 +1,7 @@
 import fs from "fs/promises";
+import { processEssaysInParallel } from "./parallelSearch.js";
+import { ProgressTracker } from "./progressTracker.js";
 import { scrapeEssays } from "./scrapeEssays.js";
-import { searchAllEssaysOnHN } from "./searchHackerNews.js";
 
 /**
  * Generate a comprehensive report of results
@@ -123,28 +124,71 @@ async function saveResults(report) {
 
 /**
  * Main function to run the scraper
+ * @param {string} resumeSessionId - Optional session ID to resume
+ * @param {number} batchSize - Number of essays to process in parallel
  */
-async function main() {
+async function main(resumeSessionId = null, batchSize = 5) {
   console.log("🚀 Starting Paul Graham essay scraper...\n");
 
   try {
-    // Step 1: Scrape essays from PG's website
-    console.log("📚 Step 1: Scraping Paul Graham's essays...");
-    const essays = await scrapeEssays();
-    console.log(`✅ Found ${essays.length} essays\n`);
+    let tracker;
+    let essays;
 
-    // Step 2: Search for each essay on Hacker News
-    console.log("🔍 Step 2: Searching Hacker News for each essay...");
-    const results = await searchAllEssaysOnHN(essays);
-    console.log("✅ Completed HN search\n");
+    // Step 1: Setup progress tracker and essays
+    if (resumeSessionId) {
+      console.log(`📂 Resuming session: ${resumeSessionId}`);
+      tracker = await ProgressTracker.loadSession(resumeSessionId);
+      essays = tracker.state.essays;
+
+      if (!essays || essays.length === 0) {
+        console.log("📚 Re-scraping essays for resumed session...");
+        essays = await scrapeEssays();
+        await tracker.initializeEssays(essays);
+      }
+    } else {
+      console.log("📚 Step 1: Scraping Paul Graham's essays...");
+      essays = await scrapeEssays();
+      console.log(`✅ Found ${essays.length} essays\n`);
+
+      tracker = new ProgressTracker();
+      await tracker.initializeEssays(essays);
+    }
+
+    const stats = tracker.getStats();
+    console.log(
+      `📊 Progress: ${stats.processed}/${stats.total} essays processed (${stats.percentage}%)`
+    );
+
+    if (tracker.isComplete()) {
+      console.log(
+        "✅ All essays already processed! Generating final report..."
+      );
+    } else {
+      // Step 2: Search for each essay on Hacker News (with parallel processing)
+      console.log(
+        `🔍 Step 2: Searching Hacker News for essays (batch size: ${batchSize})...`
+      );
+      const startTime = Date.now();
+
+      const results = await processEssaysInParallel(essays, tracker, batchSize);
+
+      const totalTime = Date.now() - startTime;
+      console.log(
+        `✅ Completed HN search in ${(totalTime / 1000).toFixed(1)}s\n`
+      );
+    }
 
     // Step 3: Generate report and save results
-    console.log("📊 Step 3: Generating report...");
+    console.log("📊 Step 3: Generating final report...");
+    const results = tracker.getResults();
     const report = generateReport(results);
 
     // Step 4: Save to files
-    console.log("💾 Step 4: Saving results...");
+    console.log("💾 Step 4: Saving final results...");
     const savedFiles = await saveResults(report);
+
+    // Mark session as completed
+    await tracker.markCompleted();
 
     // Final summary
     console.log("\n🎉 Scraping completed successfully!");
@@ -167,11 +211,99 @@ async function main() {
     console.log(`- ${savedFiles.csvPath} (spreadsheet data)`);
   } catch (error) {
     console.error("❌ Error running scraper:", error);
+    console.log("\n💾 Progress has been saved. You can resume with:");
+    console.log(`node index.js --resume`);
     process.exit(1);
   }
 }
 
+/**
+ * Parse command line arguments
+ */
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const options = {
+    resume: false,
+    sessionId: null,
+    batchSize: 5,
+    listSessions: false,
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === "--resume" || arg === "-r") {
+      options.resume = true;
+      // Check if next arg is a session ID
+      if (i + 1 < args.length && !args[i + 1].startsWith("-")) {
+        options.sessionId = args[i + 1];
+        i++; // Skip next arg since we consumed it
+      }
+    } else if (arg === "--batch-size" || arg === "-b") {
+      if (i + 1 < args.length) {
+        options.batchSize = parseInt(args[i + 1], 10);
+        i++; // Skip next arg
+      }
+    } else if (arg === "--list-sessions" || arg === "-l") {
+      options.listSessions = true;
+    } else if (arg === "--help" || arg === "-h") {
+      console.log(`
+Paul Graham Essay Scraper
+
+Usage:
+  node index.js [options]
+
+Options:
+  --resume, -r [sessionId]    Resume from a previous session
+  --batch-size, -b <number>   Number of essays to process in parallel (default: 5)
+  --list-sessions, -l         List available sessions to resume
+  --help, -h                  Show this help message
+
+Examples:
+  node index.js                           # Start fresh
+  node index.js --resume                  # Resume latest session
+  node index.js --resume abc123           # Resume specific session
+  node index.js --batch-size 10           # Use larger batch size
+  node index.js --list-sessions           # Show available sessions
+      `);
+      process.exit(0);
+    }
+  }
+
+  return options;
+}
+
 // Run the scraper
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  const options = parseArgs();
+
+  if (options.listSessions) {
+    ProgressTracker.listSessions().then((sessions) => {
+      if (sessions.length === 0) {
+        console.log("No previous sessions found.");
+      } else {
+        console.log("Available sessions to resume:");
+        sessions.forEach((sessionId) => {
+          console.log(`  ${sessionId}`);
+        });
+        console.log(
+          `\nTo resume a session: node index.js --resume <sessionId>`
+        );
+      }
+    });
+  } else if (options.resume && !options.sessionId) {
+    // Resume latest session
+    ProgressTracker.listSessions().then((sessions) => {
+      if (sessions.length === 0) {
+        console.log("No previous sessions found. Starting fresh...");
+        main(null, options.batchSize);
+      } else {
+        const latestSession = sessions[sessions.length - 1];
+        console.log(`Resuming latest session: ${latestSession}`);
+        main(latestSession, options.batchSize);
+      }
+    });
+  } else {
+    main(options.sessionId, options.batchSize);
+  }
 }

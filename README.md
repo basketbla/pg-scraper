@@ -17,6 +17,8 @@ npm install
 
 ## Usage
 
+### Basic Usage
+
 Run the scraper:
 
 ```bash
@@ -25,9 +27,43 @@ npm start
 node index.js
 ```
 
+### Advanced Options
+
+```bash
+# Resume from a crash or interruption
+npm run resume
+# or
+node index.js --resume
+
+# Resume a specific session
+node index.js --resume 2024-01-15T10-30-00-000Z
+
+# List available sessions to resume
+npm run sessions
+# or
+node index.js --list-sessions
+
+# Adjust parallel processing (default: 5)
+npm run scrape:fast    # batch size 10
+npm run scrape:slow    # batch size 3
+# or
+node index.js --batch-size 8
+
+# Show help
+node index.js --help
+```
+
+### Key Features
+
+✅ **Crash Recovery**: Automatically saves progress and can resume from interruptions
+✅ **Parallel Processing**: Processes multiple essays simultaneously (configurable batch size)
+✅ **Progress Tracking**: Shows real-time progress with estimates
+✅ **Incremental Saves**: Results saved continuously, not just at the end
+
 The script will:
 - Scrape ~200+ Paul Graham essays
-- Search for each on Hacker News 
+- Search for each on Hacker News using parallel processing
+- Save progress continuously to avoid losing work
 - Generate timestamped report files
 
 ## Output Files

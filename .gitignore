@@ -9,6 +9,10 @@ pg-essays-*.json
 pg-essays-*.txt
 pg-essays-*.csv
 
+# Progress tracking files
+progress-*.json
+results-*.json
+
 # OS generated files
 .DS_Store
 .DS_Store?
