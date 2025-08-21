@@ -8,6 +8,8 @@ yarn-error.log*
 pg-essays-*.json
 pg-essays-*.txt
 pg-essays-*.csv
+pg-essays-*.html
+test-report.html
 
 # Progress tracking files
 progress-*.json

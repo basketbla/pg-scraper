@@ -68,11 +68,35 @@ The script will:
 
 ## Output Files
 
-The scraper generates three files:
+The scraper generates four files:
 
 1. **`pg-essays-hn-report-YYYY-MM-DD.json`** - Complete data in JSON format
 2. **`pg-essays-summary-YYYY-MM-DD.txt`** - Human-readable summary with top essays and posts
 3. **`pg-essays-posts-YYYY-MM-DD.csv`** - Spreadsheet-friendly format for analysis
+4. **`pg-essays-interactive-YYYY-MM-DD.html`** - Interactive web report with click-through rankings
+
+## Interactive Web Report
+
+The HTML report features:
+- ✅ **Click-through rankings** - Browse essays sorted by HN popularity
+- ✅ **Interactive filters** - Sort by popularity, post count, title, or recency
+- ✅ **Search functionality** - Find specific essays quickly
+- ✅ **Detailed modals** - Click any essay for full details and links
+- ✅ **Responsive design** - Works on desktop and mobile
+- ✅ **Direct links** - Click to read the essay or top HN discussion
+
+### Generate HTML from existing data
+
+```bash
+# Create HTML from latest JSON report
+npm run html
+
+# List available reports
+npm run html:list
+
+# Create HTML from specific file
+node createHtml.js pg-essays-hn-report-2024-01-15.json
+```
 
 ## Individual Components
 

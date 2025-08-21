@@ -9,6 +9,8 @@
     "resume": "node index.js --resume",
     "sessions": "node index.js --list-sessions",
     "status": "node status.js",
+    "html": "node createHtml.js --latest",
+    "html:list": "node createHtml.js --list",
     "scrape:fast": "node index.js --batch-size 10",
     "scrape:slow": "node index.js --batch-size 3"
   },

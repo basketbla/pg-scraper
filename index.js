@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import { generateHtmlReport } from "./generateHtml.js";
 import { processEssaysInParallel } from "./parallelSearch.js";
 import { ProgressTracker } from "./progressTracker.js";
 import { scrapeEssays } from "./scrapeEssays.js";
@@ -119,7 +120,11 @@ async function saveResults(report) {
   await fs.writeFile(csvPath, csv);
   console.log(`📄 Saved CSV data to: ${csvPath}`);
 
-  return { jsonPath, summaryPath, csvPath };
+  // Generate interactive HTML report
+  const htmlPath = `pg-essays-interactive-${timestamp}.html`;
+  await generateHtmlReport(report, htmlPath);
+
+  return { jsonPath, summaryPath, csvPath, htmlPath };
 }
 
 /**
@@ -209,6 +214,13 @@ async function main(resumeSessionId = null, batchSize = 5) {
     console.log(`- ${savedFiles.jsonPath} (complete data)`);
     console.log(`- ${savedFiles.summaryPath} (human-readable summary)`);
     console.log(`- ${savedFiles.csvPath} (spreadsheet data)`);
+    console.log(`- ${savedFiles.htmlPath} (interactive web report)`);
+
+    console.log(
+      `\n🌐 Open the interactive report: file://${process.cwd()}/${
+        savedFiles.htmlPath
+      }`
+    );
   } catch (error) {
     console.error("❌ Error running scraper:", error);
     console.log("\n💾 Progress has been saved. You can resume with:");
